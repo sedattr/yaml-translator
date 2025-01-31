@@ -1,6 +1,6 @@
 # YAML TRANSLATOR
 You can easily translate your YAML files to the target language in seconds.
-Placeholders like %placeholder%, {placeholder}, <placeholder> will not be translated.
+Placeholders like %%, {}, <> will not be translated. (example: %placeholder% will not be translated)
 
 ## USAGE & EXAMPLE
 - Usage: python translate_yaml.py -i INPUTFILENAME.YML -o OUTPUTFILENAME.YML -s SOURCELANGUAGE -t TARGETLANGUAGE -w WORKERTHREADS
