@@ -1,21 +1,50 @@
 import re
 import argparse
 import time
-from deep_translator import GoogleTranslator
+import json
+from deep_translator import GoogleTranslator, ChatGptTranslator, MicrosoftTranslator, PonsTranslator, LingueeTranslator, MyMemoryTranslator, YandexTranslator, PapagoTranslator, DeeplTranslator, QcriTranslator
 from ruamel.yaml import YAML
 from concurrent.futures import ThreadPoolExecutor
 
 yaml = YAML()
 yaml.preserve_quotes = True
 
+def load_settings(filename="settings.yml"):
+    try:
+        with open(filename, 'r', encoding='utf-8') as file:
+            data = yaml.load(file)
+            translator = data.get("translator", "GoogleTranslator")
+            api_key = data.get("api_key", None)
+            protected_keys = data.get("protected_keys", [])
+            return translator, api_key, protected_keys
+    except Exception as e:
+        print(f"❌ Settings file could not be loaded: {e}")
+        return "GoogleTranslator", None, []
+
+def get_translator(translator_name, source, target, api_key=None):
+    translators = {
+        "GoogleTranslator": GoogleTranslator,
+        "ChatGptTranslator": ChatGptTranslator,
+        "MicrosoftTranslator": MicrosoftTranslator,
+        "PonsTranslator": PonsTranslator,
+        "LingueeTranslator": LingueeTranslator,
+        "MyMemoryTranslator": MyMemoryTranslator,
+        "YandexTranslator": YandexTranslator,
+        "PapagoTranslator": PapagoTranslator,
+        "DeeplTranslator": DeeplTranslator,
+        "QcriTranslator": QcriTranslator,
+    }
+    
+    translator_class = translators.get(translator_name, GoogleTranslator)
+    
+    if api_key:
+        return translator_class(api_key=api_key, source=source, target=target)
+    else:
+        return translator_class(source=source, target=target)
+
+selected_translator, api_key, protected_keys = load_settings("settings.yml")
+
 variable_placeholders = {}
-
-def load_protected_keys(filename="protected_keys.yml"):
-    with open(filename, 'r', encoding='utf-8') as file:
-        data = yaml.load(file)
-        return data.get("protected_keys", [])
-
-protected_keys = load_protected_keys("protected_keys.yml")
 
 def mask_variables(text):
     if not isinstance(text, str):  
@@ -46,8 +75,9 @@ def translate_text(key, text, target, source):
         original_text = text
         text = mask_variables(text)
 
-        print(f"🔄 Translating: {original_text} -> {text} ({source} -> {target})")  
-        translated_text = GoogleTranslator(source=source, target=target).translate(text)
+        print(f"🔄 Translating [{selected_translator}]: {original_text} -> {text} ({source} -> {target})")  
+        translator = get_translator(selected_translator, source, target, api_key)
+        translated_text = translator.translate(text)
 
         translated_text = unmask_variables(translated_text)
         print(f"✅ Translated: {translated_text}")  
@@ -68,6 +98,10 @@ def translate_yaml_content(obj, source_lang, target_lang, workers, parent_key=No
     return obj
 
 def translate_yaml(input_file, output_file, source_lang, target_lang, workers):
+    global protected_keys, selected_translator, api_key  
+
+    selected_translator, api_key, protected_keys = load_settings("settings.yml")
+
     with open(input_file, 'r', encoding='utf-8') as stream:
         try:
             yaml_content = yaml.load(stream)
@@ -76,7 +110,7 @@ def translate_yaml(input_file, output_file, source_lang, target_lang, workers):
             print(f"❌ YAML load error: {exc}")
             return
     
-    print(f"🔄 YAML is translating with {workers} workers...")
+    print(f"🔄 Translating YAML with {workers} workers using [{selected_translator}]...")
     
     start_time = time.time()
 
@@ -93,11 +127,11 @@ def translate_yaml(input_file, output_file, source_lang, target_lang, workers):
 
     end_time = time.time()
 
-    print(f"✅ Translation is completed! Took: {round(end_time - start_time, 2)} seconds")
+    print(f"✅ Translation completed! Took: {round(end_time - start_time, 2)} seconds")
     
     with open(output_file, 'w', encoding='utf-8') as outfile:
         yaml.dump(translated_content, outfile)
-        print(f"📁 Translated file is saved: {output_file}")
+        print(f"📁 Translated file saved: {output_file}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Translate YAML file values')
